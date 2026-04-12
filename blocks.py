@@ -7,9 +7,11 @@ class ScaledDotProductAttention(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self,q,k,v):
+    def forward(self,q,k,v,mask=None):
         d_k = q.size(-1)
         scores = torch.matmul(q,k.transpose(-2,-1)) / torch.sqrt(torch.tensor(d_k,dtype=torch.float32))
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, -1e9)
         attn = F.softmax(scores,dim=-1)
         output = torch.matmul(attn,v)
         return output,attn
@@ -25,7 +27,7 @@ class MultiHeadAttention(nn.Module):
         self.W_v = nn.Linear(d_model,d_model)
         self.W_o = nn.Linear(d_model,d_model)
      
-    def forward(self,q,k,v):
+    def forward(self,q,k,v,mask=None):
         batch_size = q.size(0)
 
         q = self.W_q(q).view(batch_size,-1,self.num_heads,self.d_k).transpose(1,2)
