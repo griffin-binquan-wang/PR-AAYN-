@@ -27,12 +27,12 @@ class EncoderLayer(nn.Module):
         return x
 
 class TransformerEncoder(nn.Module):
-    def __init__(self,d_model,num_heads,d_ff,num_layers):
+    def __init__(self,vocab_size,d_model,num_heads,d_ff,num_layers,dropout=0.1):
         super().__init__()
-        self.embedding = nn.Embedding(10000,d_model)
+        self.embedding = nn.Embedding(vocab_size,d_model)
         self.pos_encoder = PositionalEncoding(d_model)
         self.layers = nn.ModuleList([
-            EncoderLayer(d_model,num_heads,d_ff)
+            EncoderLayer(d_model,num_heads,d_ff,dropout)
             for _ in range(num_layers)
         ])
 
@@ -44,9 +44,9 @@ class TransformerEncoder(nn.Module):
         return x
     
 class TransformerClassifier(nn.Module):
-    def __init__(self,d_model,num_heads,d_ff,num_layers,num_classes):
+    def __init__(self,d_model,num_heads,d_ff,num_layers,num_classes,vocab_size):
         super().__init__()
-        self.encoder = TransformerEncoder(d_model,num_heads,d_ff,num_layers)
+        self.encoder = TransformerEncoder(vocab_size,d_model,num_heads,d_ff,num_layers)
         self.fc = nn.Linear(d_model,num_classes)
     def forward(self,x,mask=None):
         encoded_output = self.encoder(x,mask)
