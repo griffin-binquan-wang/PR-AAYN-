@@ -1,29 +1,19 @@
 import torch
+from transformers import AutoTokenizer
 
-class SimpleTokenizer:
-    def __init__(self,sentences):
-        self.vocab =  {"<PAD>":0,"<UNK>":1}
+class BertTokenizerAdapter:
+    def __init__(self,model_name="bert-base-uncased"):
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        for sentence in sentences:
-            for word in sentence.split():
-                if word not in self.vocab:
-                    self.vocab[word] = len(self.vocab)
-
-        self.id_to_word = {v:k for k,v in self.vocab.items()}
-
-    def encode(self,text,max_len=10):
-        tokens = text.split()
-        ids = []
-
-        for word in tokens:
-            ids.append(self.vocab.get(word,1))
-
-        if len(ids) < max_len:
-            ids += [0] * (max_len - len(ids))
-        else:
-            ids = ids[:max_len]
-
-        return ids
+    def encode(self,text,max_len=12):
+        encoding = self.tokenizer(
+            text,
+            max_length=max_len,
+            padding='max_length',
+            truncation=True,
+            return_tensors="pt"
+        )
+        return encoding['input_ids'].flatten(),encoding['attention_mask']
     
     def get_vocab_size(self):
-        return len(self.vocab)
+        return self.tokenizer.vocab_size
