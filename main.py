@@ -45,17 +45,17 @@ if __name__ == "__main__":
         d_model=512,
         num_heads=8,
         d_ff=2048,
-        num_layers=6,
+        num_layers=8,
         num_classes=2,
         vocab_size=tokenizer.get_vocab_size()
     ).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
     criterion = torch.nn.CrossEntropyLoss()
 
     print("Start Training...")
-    model.train()
-    for epoch in range(3):
+    for epoch in range(2):
+        model.train()
         progress_bar = tqdm(train_loader, desc=f"Epoch{epoch+1}")
         total_loss = 0
         for batch in progress_bar:
@@ -71,13 +71,13 @@ if __name__ == "__main__":
 
             total_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
+        accuracy = evaluate(model, test_loader, device)
+        print(f"Epoch {epoch+1} Test acc:{accuracy:.2f}%")
 
-        print(f"Epoch {epoch+1}/3 | Avg Loss: {total_loss/len(train_loader):.4f}")
+        print(f"Epoch {epoch+1}/2 | Avg Loss: {total_loss/len(train_loader):.4f}")
     torch.save(model.state_dict(), "transformer_imdb_v1.pth")
     print("Model saved to transformer_imdb_v1.pth")
 
-    accuracy = evaluate(model, test_loader, device)
-    print(f"Accuracy on Test Set:{accuracy:.2f}%")
 
     
 
