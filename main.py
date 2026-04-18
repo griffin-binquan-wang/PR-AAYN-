@@ -7,6 +7,7 @@ from utils import BertTokenizerAdapter, SentimentDataset
 from torch.utils.data import DataLoader
 import pandas as pd
 from datasets import load_dataset
+from tqdm import tqdm
 
 def evaluate(model, data_label, device):
     model.eval()
@@ -32,13 +33,13 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     dataset = load_dataset("imdb")
-    train_data = dataset['train'].shuffle(seed=42).select(range(2000))
-    test_data = dataset['test'].shuffle(seed=42).select(range(500))
+    train_data = dataset['train'].shuffle(seed=42)
+    test_data = dataset['test'].shuffle(seed=42)
     tokenizer = BertTokenizerAdapter()
-    train_dataset = SentimentDataset(train_data['text'], train_data['label'], tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-    test_dataset = SentimentDataset(test_data['text'], test_data['label'], tokenizer)
-    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+    train_dataset = SentimentDataset(train_data['text'], train_data['label'], tokenizer, max_len=128)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    test_dataset = SentimentDataset(test_data['text'], test_data['label'], tokenizer, max_len=128)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     model = TransformerClassifier(
         d_model=512,
@@ -55,8 +56,9 @@ if __name__ == "__main__":
     print("Start Training...")
     model.train()
     for epoch in range(3):
+        progress_bar = tqdm(train_loader, desc=f"Epoch{epoch+1}")
         total_loss = 0
-        for batch in train_loader:
+        for batch in progress_bar:
             ids = batch['input_ids'].to(device)
             mask = batch['attention_mask'].unsqueeze(1).unsqueeze(2).to(device)
             labels = batch['label'].to(device)
@@ -68,8 +70,11 @@ if __name__ == "__main__":
             optimizer.step()
 
             total_loss += loss.item()
+            progress_bar.set_postfix(loss=loss.item())
 
         print(f"Epoch {epoch+1}/3 | Avg Loss: {total_loss/len(train_loader):.4f}")
+    torch.save(model.state_dict(), "transformer_imdb_v1.pth")
+    print("Model saved to transformer_imdb_v1.pth")
 
     accuracy = evaluate(model, test_loader, device)
     print(f"Accuracy on Test Set:{accuracy:.2f}%")
