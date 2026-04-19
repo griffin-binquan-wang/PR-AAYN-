@@ -8,6 +8,7 @@ env/                  # 虚拟环境目录
 venv/                 # 虚拟环境目录
 .venv/                # VS Code 常用的虚拟环境目录
 pip-log.txt           # Pip 安装日志
+*.pth                      
 
 # --- VS Code 相关 ---
 .vscode/              # 忽略 VS Code 的项目特定配置
@@ -21,5 +22,3 @@ Thumbs.db             # Windows 缩略图缓存
 
 # --- 敏感信息 (预防万一) ---
 .env                  # 环境变量文件，通常包含密钥
-
-*.pth                 #模型文件

@@ -40,3 +40,8 @@ class SentimentDataset(Dataset):
             'attention_mask': mask,
             'label': torch.tensor(label, dtype=torch.long)
         }
+    
+    def subsequent_mask(size):
+        attn_shape = (1, size, size)
+        mask = torch.triu(torch.ones(attn_shape), diagonal=1).type(torch.uint8)
+        return mask == 0
