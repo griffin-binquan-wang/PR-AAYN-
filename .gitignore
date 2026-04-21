@@ -1,24 +1,24 @@
 # --- Python 相关 ---
-__pycache__/          # 自动生成的 Python 字节码缓存
-*.py[cod]             # 编译后的 .pyc 等文件
-*$py.class            # Jython 相关
-*.so                  # C 扩展文件
-.Python               # Python 内部文件
-env/                  # 虚拟环境目录
-venv/                 # 虚拟环境目录
-.venv/                # VS Code 常用的虚拟环境目录
-pip-log.txt           # Pip 安装日志
+__pycache__/
+*.pyc
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
 *.pth                      
 
 # --- VS Code 相关 ---
-.vscode/              # 忽略 VS Code 的项目特定配置
-!.vscode/settings.json # (可选) 如果想分享特定的编辑器设置，可以去掉前面的感叹号
-!.vscode/tasks.json    # (可选) 如果想分享特定的任务配置，可以去掉前面的感叹号
-*.code-workspace      # VS Code 工作区文件
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+*.code-workspace
 
 # --- 操作系统相关 ---
-.DS_Store             # macOS 系统文件
-Thumbs.db             # Windows 缩略图缓存
+.DS_Store
+Thumbs.db
 
 # --- 敏感信息 (预防万一) ---
-.env                  # 环境变量文件，通常包含密钥
+.env

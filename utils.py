@@ -41,7 +41,18 @@ class SentimentDataset(Dataset):
             'label': torch.tensor(label, dtype=torch.long)
         }
     
-    def subsequent_mask(size):
-        attn_shape = (1, size, size)
-        mask = torch.triu(torch.ones(attn_shape), diagonal=1).type(torch.uint8)
-        return mask == 0
+def subsequent_mask(size):
+    attn_shape = (1, size, size)
+    mask = torch.triu(torch.ones(attn_shape), diagonal=1).type(torch.uint8)
+    return mask == 0
+
+def create_masks(src, trg, src_pad_idx, trg_pad_idx, device):
+    src_mask = (src != src_pad_idx).unsqueeze(1).unsqueeze(2)
+
+    trg_pad_mask = (trg != trg_pad_idx).unsqueeze(1).unsqueeze(3)
+    size = trg.size(1)
+
+    l_mask = subsequent_mask(size).to(device)
+    trg_mask = trg_pad_mask & l_mask
+
+    return src_mask, trg_mask

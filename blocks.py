@@ -34,14 +34,15 @@ class MultiHeadAttention(nn.Module):
         k = self.W_k(k).view(batch_size,-1,self.num_heads,self.d_k).transpose(1,2)
         v = self.W_v(v).view(batch_size,-1,self.num_heads,self.d_k).transpose(1,2)
 
-        attn_output, attn_weights = ScaledDotProductAttention()(q,k,v)
+        attn_output, attn_weights = ScaledDotProductAttention()(q,k,v, mask=mask)
         attn_output = attn_output.transpose(1,2).contiguous().view(batch_size,-1,self.num_heads*self.d_k)
         output = self.W_o(attn_output)
         return output, attn_weights
 
 class PositionalEncoding(nn.Module):
-    def __init__(self,d_model,max_len=5000):
+    def __init__(self,d_model, dropout, max_len=5000):
         super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
         pe = torch.zeros(max_len,d_model)
         position = torch.arange(0,max_len,dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0,d_model,2).float() * (-math.log(10000.0) / d_model))
@@ -52,4 +53,4 @@ class PositionalEncoding(nn.Module):
 
     def forward(self,x):
         x = x + self.pe[:,:x.size(1),:]
-        return x
+        return self.dropout(x)
