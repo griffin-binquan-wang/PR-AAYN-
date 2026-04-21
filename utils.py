@@ -56,3 +56,22 @@ def create_masks(src, trg, src_pad_idx, trg_pad_idx, device):
     trg_mask = trg_pad_mask & l_mask
 
     return src_mask, trg_mask
+
+class TranslationDataset(Dataset):
+    def __init__(self, src_texts, trg_texts, tokenizer, max_len=128):
+        self.src_texts = src_texts
+        self.trg_texts = trg_texts
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.src_texts)
+    
+    def __getitem__(self, idx):
+        src_ids, _ = self.tokenizer.encode(self.src_texts[idx], max_len=self.max_len)
+        trg_ids, _ = self.tokenizer.encode(self.trg_texts[idx], max_len=self.max_len)
+
+        return {
+            'src_ids': src_ids,
+            'trg_ids': trg_ids
+        }

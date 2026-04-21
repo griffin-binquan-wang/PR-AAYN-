@@ -2,117 +2,80 @@ from model import TransformerClassifier, Transformer
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from utils import BertTokenizerAdapter, SentimentDataset
+from utils import BertTokenizerAdapter, SentimentDataset, TranslationDataset
 import utils
 from torch.utils.data import DataLoader
 import pandas as pd
 from datasets import load_dataset
 from tqdm import tqdm
 
-# def evaluate(model, data_label, device):
-#     model.eval()
-#     correct = 0
-#     total = 0
+src_data = [
+    "I like learning deep learning.",
+    "The transformer model is very powerful.",
+    "Artificial intelligence will change the world.",
+    "I am building a neural network.",
+    "Attention is all you need."
+]
 
-#     with torch.no_grad():
-#         for batch in test_loader:
-#             ids = batch['input_ids'].to(device)
-#             mask = batch['attention_mask'].unsqueeze(1).unsqueeze(2).to(device)
-#             label = batch['label'].to(device)
+trg_data = [
+    "我喜欢学习深度学习。",
+    "Transformer模型非常强大。",
+    "人工智能将改变世界。",
+    "我正在构建一个神经网络。",
+    "你只需要注意力机制。"
+]
 
-#             output = model(ids, mask=mask)
-#             _,predicted = torch.max(outputs.data, 1)
+tokenizer = BertTokenizerAdapter("bert-base-chinese")
+max_len = 15
+dataset = TranslationDataset(src_data, trg_data, tokenizer, max_len=max_len)
+loader = DataLoader(dataset, batch_size=2, shuffle=True)
 
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
+for batch in loader:
+    src_ids = batch['src_ids']
+    trg_ids = batch['trg_ids']
 
-#     return 100 * correct / total
+    print("Source IDs Batch Shape:", src_ids.shape)
+    print("First Source ID Sequence:", src_ids[0])
+    print("First Target ID Sequence:", trg_ids[0])
+    break
 
-# if __name__ == "__main__":
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#     print(f"Using device: {device}")
 
-#     dataset = load_dataset("imdb")
-#     train_data = dataset['train'].shuffle(seed=42)
-#     test_data = dataset['test'].shuffle(seed=42)
-#     tokenizer = BertTokenizerAdapter()
-#     train_dataset = SentimentDataset(train_data['text'], train_data['label'], tokenizer, max_len=128)
-#     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-#     test_dataset = SentimentDataset(test_data['text'], test_data['label'], tokenizer, max_len=128)
-#     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
-#     model = TransformerClassifier(
-#         d_model=512,
-#         num_heads=8,
-#         d_ff=2048,
-#         num_layers=8,
-#         num_classes=2,
-#         vocab_size=tokenizer.get_vocab_size()
-#     ).to(device)
+# # 1. 配置参数
+# src_vocab_size = 100
+# trg_vocab_size = 100
+# d_model = 512
+# num_layers = 6
+# num_heads = 8
+# d_ff = 2048
+# dropout = 0.1
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-#     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-#     criterion = torch.nn.CrossEntropyLoss()
+# # 2. 实例化你写的模型
+# model = Transformer(src_vocab_size, trg_vocab_size, d_model, num_layers, num_heads, d_ff, dropout).to(device)
 
-#     print("Start Training...")
-#     for epoch in range(2):
-#         model.train()
-#         progress_bar = tqdm(train_loader, desc=f"Epoch{epoch+1}")
-#         total_loss = 0
-#         for batch in progress_bar:
-#             ids = batch['input_ids'].to(device)
-#             mask = batch['attention_mask'].unsqueeze(1).unsqueeze(2).to(device)
-#             labels = batch['label'].to(device)
+# # 3. 模拟输入 (Batch=2, 源句长=10, 目标句长=8)
+# src = torch.randint(1, src_vocab_size, (2, 10)).to(device)
+# trg = torch.randint(1, trg_vocab_size, (2, 8)).to(device)
 
-#             optimizer.zero_grad()
-#             outputs = model(ids, mask=mask)
-#             loss = criterion(outputs, labels)
-#             loss.backward()
-#             optimizer.step()
+# # 4. 设置 PAD 的 ID（假设是 0）
+# src_pad_idx = 0
+# trg_pad_idx = 0
 
-#             total_loss += loss.item()
-#             progress_bar.set_postfix(loss=loss.item())
-#         accuracy = evaluate(model, test_loader, device)
-#         print(f"Epoch {epoch+1} Test acc:{accuracy:.2f}%")
+# # 5. 调用你亲手写的 create_masks
+# src_mask, trg_mask = utils.create_masks(src, trg, src_pad_idx, trg_pad_idx, device)
 
-#         print(f"Epoch {epoch+1}/2 | Avg Loss: {total_loss/len(train_loader):.4f}")
-#     torch.save(model.state_dict(), "transformer_imdb_v1.pth")
-#     print("Model saved to transformer_imdb_v1.pth")
+# # 6. 开启冒烟测试
+# model.eval()
+# with torch.no_grad():
+#     output = model(src, trg, src_mask, trg_mask)
 
-# 1. 配置参数
-src_vocab_size = 100
-trg_vocab_size = 100
-d_model = 512
-num_layers = 6
-num_heads = 8
-d_ff = 2048
-dropout = 0.1
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# 2. 实例化你写的模型
-model = Transformer(src_vocab_size, trg_vocab_size, d_model, num_layers, num_heads, d_ff, dropout).to(device)
-
-# 3. 模拟输入 (Batch=2, 源句长=10, 目标句长=8)
-src = torch.randint(1, src_vocab_size, (2, 10)).to(device)
-trg = torch.randint(1, trg_vocab_size, (2, 8)).to(device)
-
-# 4. 设置 PAD 的 ID（假设是 0）
-src_pad_idx = 0
-trg_pad_idx = 0
-
-# 5. 调用你亲手写的 create_masks
-src_mask, trg_mask = utils.create_masks(src, trg, src_pad_idx, trg_pad_idx, device)
-
-# 6. 开启冒烟测试
-model.eval()
-with torch.no_grad():
-    output = model(src, trg, src_mask, trg_mask)
-
-print("-" * 30)
-print(f"src_mask 形状: {src_mask.shape}") # 应该是 [2, 1, 1, 10]
-print(f"trg_mask 形状: {trg_mask.shape}") # 应该是 [2, 1, 8, 8]
-print(f"模型输出形状: {output.shape}")      # 应该是 [2, 8, 100]
-print("-" * 30)
-print("恭喜！如果形状全对，说明你的逻辑链条已经彻底打通了！")
+# print("-" * 30)
+# print(f"src_mask 形状: {src_mask.shape}") # 应该是 [2, 1, 1, 10]
+# print(f"trg_mask 形状: {trg_mask.shape}") # 应该是 [2, 1, 8, 8]
+# print(f"模型输出形状: {output.shape}")      # 应该是 [2, 8, 100]
+# print("-" * 30)
+# print("恭喜！如果形状全对，说明你的逻辑链条已经彻底打通了！")
     
 
 
