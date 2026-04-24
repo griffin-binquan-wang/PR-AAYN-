@@ -1,82 +1,116 @@
-from model import TransformerClassifier, Transformer
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from utils import BertTokenizerAdapter, SentimentDataset, TranslationDataset
-import utils
 from torch.utils.data import DataLoader
-import pandas as pd
-from datasets import load_dataset
-from tqdm import tqdm
+from model import Transformer 
+from utils import BertTokenizerAdapter, TranslationDataset, create_masks
 
-src_data = [
-    "I like learning deep learning.",
-    "The transformer model is very powerful.",
-    "Artificial intelligence will change the world.",
-    "I am building a neural network.",
-    "Attention is all you need."
-]
-
-trg_data = [
-    "我喜欢学习深度学习。",
-    "Transformer模型非常强大。",
-    "人工智能将改变世界。",
-    "我正在构建一个神经网络。",
-    "你只需要注意力机制。"
-]
-
-tokenizer = BertTokenizerAdapter("bert-base-chinese")
-max_len = 15
-dataset = TranslationDataset(src_data, trg_data, tokenizer, max_len=max_len)
-loader = DataLoader(dataset, batch_size=2, shuffle=True)
-
-for batch in loader:
-    src_ids = batch['src_ids']
-    trg_ids = batch['trg_ids']
-
-    print("Source IDs Batch Shape:", src_ids.shape)
-    print("First Source ID Sequence:", src_ids[0])
-    print("First Target ID Sequence:", trg_ids[0])
-    break
-
-
-
-# # 1. 配置参数
-# src_vocab_size = 100
-# trg_vocab_size = 100
-# d_model = 512
-# num_layers = 6
-# num_heads = 8
-# d_ff = 2048
-# dropout = 0.1
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# # 2. 实例化你写的模型
-# model = Transformer(src_vocab_size, trg_vocab_size, d_model, num_layers, num_heads, d_ff, dropout).to(device)
-
-# # 3. 模拟输入 (Batch=2, 源句长=10, 目标句长=8)
-# src = torch.randint(1, src_vocab_size, (2, 10)).to(device)
-# trg = torch.randint(1, trg_vocab_size, (2, 8)).to(device)
-
-# # 4. 设置 PAD 的 ID（假设是 0）
-# src_pad_idx = 0
-# trg_pad_idx = 0
-
-# # 5. 调用你亲手写的 create_masks
-# src_mask, trg_mask = utils.create_masks(src, trg, src_pad_idx, trg_pad_idx, device)
-
-# # 6. 开启冒烟测试
-# model.eval()
-# with torch.no_grad():
-#     output = model(src, trg, src_mask, trg_mask)
-
-# print("-" * 30)
-# print(f"src_mask 形状: {src_mask.shape}") # 应该是 [2, 1, 1, 10]
-# print(f"trg_mask 形状: {trg_mask.shape}") # 应该是 [2, 1, 8, 8]
-# print(f"模型输出形状: {output.shape}")      # 应该是 [2, 8, 100]
-# print("-" * 30)
-# print("恭喜！如果形状全对，说明你的逻辑链条已经彻底打通了！")
+def translate(model, sentence, tokenizer, max_len=20):
+    model.eval() # 切换到评估模式
+    src_ids, _ = tokenizer.encode(sentence, max_len=max_len)
+    src = src_ids.unsqueeze(0).to(device) # 增加 Batch 维度
     
+    # 初始状态：只输入 SOS (假设 SOS 的 ID 是 101，请根据你的 tokenizer 确认)
+    trg_input = torch.tensor([[101]]).to(device) 
+    
+    for i in range(max_len - 1):
+        # 掩码
+        src_mask, trg_mask = create_masks(src, trg_input, 0, 0, device)
+        
+        # 预测
+        with torch.no_grad():
+            output = model(src, trg_input, src_mask, trg_mask)
+            
+        # 取出最后一个词的预测结果，找到概率最大的 ID
+        next_token = output.argmax(dim=-1)[:, -1].item()
+        
+        # 拼接到 trg_input
+        trg_input = torch.cat([trg_input, torch.tensor([[next_token]]).to(device)], dim=1)
+        
+        if next_token == 102: # 遇到 EOS 就停
+            break
+            
+    return tokenizer.tokenizer.decode(trg_input[0].tolist())
+
+# --- 1. 配置与超参数 ---
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+batch_size = 2
+max_len = 20
+lr = 0.0001
+
+# --- 2. 准备数据 ---
+src_data = ["I like learning deep learning.", "Attention is all you need."]
+trg_data = ["我喜欢学习深度学习。", "你只需要注意力机制。"]
+
+tokenizer = BertTokenizerAdapter("bert-base-multilingual-cased")
+dataset = TranslationDataset(src_data, trg_data, tokenizer, max_len=max_len)
+loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+# --- 3. 实例化模型 ---
+vocab_size = tokenizer.get_vocab_size()
+model = Transformer(
+    src_vocab=vocab_size, 
+    trg_vocab=vocab_size, 
+    d_model=512, 
+    num_layers=6, 
+    num_heads=8, 
+    d_ff=2048, 
+    dropout=0.1, 
+).to(device)
+
+# --- 4. 定义损失函数和优化器 ---
+criterion = nn.CrossEntropyLoss(ignore_index=0) # 忽略 [PAD]
+optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.98), eps=1e-9)
+
+# --- 5. 训练循环 ---
+print(f"正在使用 {device} 开始炼丹...")
+
+model.train()
+for epoch in range(50):
+    total_loss = 0
+    for batch in loader:
+        src = batch['src_ids'].to(device)
+        trg = batch['trg_ids'].to(device)
+        
+        # 核心：构造错位
+        trg_input = trg[:, :-1]
+        trg_y = trg[:, 1:]
+        
+        # 创建掩码
+        src_mask, trg_mask = create_masks(src, trg_input, 0, 0, device)
+        
+        # 前向传播
+        optimizer.zero_grad()
+        output = model(src, trg_input, src_mask, trg_mask)
+        
+        # 计算 Loss
+        # output.size(-1) 实际上就是 vocab_size
+        loss = criterion(output.view(-1, output.size(-1)), trg_y.contiguous().view(-1))
+        
+        # 反向传播
+        loss.backward()
+        optimizer.step()
+        
+        total_loss += loss.item()
+    
+    if (epoch + 1) % 5 == 0:
+        print(f"Epoch [{epoch+1}/50], Loss: {total_loss/len(loader):.4f}")
+
+print("训练完成！")
+
+# 测试训练过的句子（看看它记住了没）
+test_sentence = "I like learning deep learning."
+result = translate(model, test_sentence, tokenizer)
+
+print(f"\n[测试原句]: {test_sentence}")
+print(f"[模型翻译]: {result}")
+
+# 尝试一个没写过的句子（看看它的泛化能力）
+test_sentence_new = "The model is powerful."
+result_new = translate(model, test_sentence_new, tokenizer)
+
+print(f"\n[测试新句]: {test_sentence_new}")
+print(f"[模型翻译]: {result_new}")
 
 
     

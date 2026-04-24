@@ -68,7 +68,9 @@ class TranslationDataset(Dataset):
         return len(self.src_texts)
     
     def __getitem__(self, idx):
+        # 编码源句子 (Encoder 输入)        
         src_ids, _ = self.tokenizer.encode(self.src_texts[idx], max_len=self.max_len)
+        # 编码目标句子 (Decoder 输入/输出) 
         trg_ids, _ = self.tokenizer.encode(self.trg_texts[idx], max_len=self.max_len)
 
         return {
