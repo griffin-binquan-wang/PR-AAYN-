@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from model import Transformer 
-from utils import BertTokenizerAdapter, TranslationDataset, create_masks
+from utils import BertTokenizerAdapter, TranslationDataset, create_masks, load_data_from_file
+from tqdm import tqdm
 
 def translate(model, sentence, tokenizer, max_len=20):
     model.eval() # 切换到评估模式
@@ -34,13 +35,19 @@ def translate(model, sentence, tokenizer, max_len=20):
 
 # --- 1. 配置与超参数 ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-batch_size = 2
-max_len = 20
+batch_size = 32
+max_len = 32
 lr = 0.0001
 
 # --- 2. 准备数据 ---
-src_data = ["I like learning deep learning.", "Attention is all you need."]
-trg_data = ["我喜欢学习深度学习。", "你只需要注意力机制。"]
+# 1. 指定你下载并改名后的文件路径
+file_path = 'data/train_cmn.txt'
+
+# 2. 调用函数加载
+src_data, trg_data = load_data_from_file(file_path)
+
+# 打印一下看看加载了多少条
+print(f"语料加载完成，共计 {len(src_data)} 条记录。")
 
 tokenizer = BertTokenizerAdapter("bert-base-multilingual-cased")
 dataset = TranslationDataset(src_data, trg_data, tokenizer, max_len=max_len)
@@ -62,13 +69,18 @@ model = Transformer(
 criterion = nn.CrossEntropyLoss(ignore_index=0) # 忽略 [PAD]
 optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.98), eps=1e-9)
 
-# --- 5. 训练循环 ---
+# # --- 5. 训练循环 ---
 print(f"正在使用 {device} 开始炼丹...")
 
 model.train()
-for epoch in range(50):
+for epoch in range(100):
     total_loss = 0
-    for batch in loader:
+
+    # 用 tqdm 把 loader 包起来
+    # desc 是描述，leave=True 表示循环结束后进度条保留
+    progress_bar = tqdm(loader, desc=f"Epoch {epoch+1}/100", leave=True)
+
+    for batch in progress_bar:
         src = batch['src_ids'].to(device)
         trg = batch['trg_ids'].to(device)
         
@@ -92,25 +104,16 @@ for epoch in range(50):
         optimizer.step()
         
         total_loss += loss.item()
+
+        # 实时更新进度条显示的 Loss
+        progress_bar.set_postfix(loss=loss.item())
     
-    if (epoch + 1) % 5 == 0:
-        print(f"Epoch [{epoch+1}/50], Loss: {total_loss/len(loader):.4f}")
+    if (epoch + 1) % 3 == 0:
+        print(f"Epoch [{epoch+1}/100], Loss: {total_loss/len(loader):.4f}")
+    
+    if (epoch + 1) % 3 == 0:
+        torch.save(model.state_dict(), f"transformer_epoch_{epoch+1}.pth")
 
-print("训练完成！")
-
-# 测试训练过的句子（看看它记住了没）
-test_sentence = "I like learning deep learning."
-result = translate(model, test_sentence, tokenizer)
-
-print(f"\n[测试原句]: {test_sentence}")
-print(f"[模型翻译]: {result}")
-
-# 尝试一个没写过的句子（看看它的泛化能力）
-test_sentence_new = "The model is powerful."
-result_new = translate(model, test_sentence_new, tokenizer)
-
-print(f"\n[测试新句]: {test_sentence_new}")
-print(f"[模型翻译]: {result_new}")
-
+print("训练完成!")
 
     

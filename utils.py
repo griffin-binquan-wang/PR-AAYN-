@@ -77,3 +77,14 @@ class TranslationDataset(Dataset):
             'src_ids': src_ids,
             'trg_ids': trg_ids
         }
+
+def load_data_from_file(file_path):
+    src_texts, trg_texts = [], []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            # 只有当这一行至少有两部分时才处理
+            if len(parts) >= 2:
+                src_texts.append(parts[0]) # 英文
+                trg_texts.append(parts[1]) # 中文
+    return src_texts, trg_texts
