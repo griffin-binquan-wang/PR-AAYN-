@@ -58,16 +58,6 @@ def translate(model, sentence, tokenizer, max_len=20):
             
     return tokenizer.tokenizer.decode(trg_input[0].tolist())
 
-
-# # --- 4. 真正开始测试 ---
-# if __name__ == "__main__":
-#     while True:
-#         sentence = input("\n请输入要翻译的英文 (输入 q 退出): ")
-#         if sentence.lower() == 'q':
-#             break
-#         translation = translate(model, sentence, tokenizer, max_len=max_len)
-#         print(f"翻译结果: {translation}")
-
 # --- 1. 配置与超参数 ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 32
@@ -94,7 +84,7 @@ model = Transformer(
     src_vocab=vocab_size, 
     trg_vocab=vocab_size, 
     d_model=512, 
-    num_layers=6, 
+    num_layers=8, 
     num_heads=8, 
     d_ff=2048, 
     dropout=0.1, 
@@ -153,4 +143,11 @@ for epoch in range(100):
 
 print("训练完成!")
 
-    
+#     # --- 4. 真正开始测试 ---
+# if __name__ == "__main__":
+#     while True:
+#         sentence = input("\n请输入要翻译的英文 (输入 q 退出): ")
+#         if sentence.lower() == 'q':
+#             break
+#         translation = translate(model, sentence, tokenizer, max_len=max_len)
+#         print(f"翻译结果: {translation}")

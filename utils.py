@@ -3,10 +3,15 @@ from transformers import AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
 
 class BertTokenizerAdapter:
+    """
+    分词器适配器 (Tokenizer Adapter)
+    将 HuggingFace 的分词器包装成我们需要的简单接口
+    """
     def __init__(self,model_name="bert-base-uncased"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def encode(self,text,max_len=12):
+        # 返回 input_ids 和 attention_mask (通常用于处理填充部分)
         encoding = self.tokenizer(
             text,
             max_length=max_len,
@@ -42,16 +47,30 @@ class SentimentDataset(Dataset):
         }
     
 def subsequent_mask(size):
+    """
+    后续掩码 (Subsequent Mask / Look-ahead Mask)
+    用于 Decoder，确保模型训练时不能“偷看”后面的单词
+    """
     attn_shape = (1, size, size)
+
+    # 创建上三角矩阵 (Upper triangular matrix)
     mask = torch.triu(torch.ones(attn_shape), diagonal=1).type(torch.uint8)
-    return mask == 0
+    return mask == 0    # 0 的位置是未来信息，设为 False
 
 def create_masks(src, trg, src_pad_idx, trg_pad_idx, device):
+    """
+    创建掩码集合 (Create all necessary masks)
+    1. src_mask: 屏蔽 Encoder 输入中的填充符号 [PAD]
+    2. trg_mask: 屏蔽 Decoder 输入中的 [PAD] 且禁止“看未来”
+    """
+    # 屏蔽源语言中的填充符
     src_mask = (src != src_pad_idx).unsqueeze(1).unsqueeze(2)
 
+    # 屏蔽目标语言中的填充符
     trg_pad_mask = (trg != trg_pad_idx).unsqueeze(1).unsqueeze(3)
     size = trg.size(1)
 
+    # 合并填充掩码与后续掩码
     l_mask = subsequent_mask(size).to(device)
     trg_mask = trg_pad_mask & l_mask
 
@@ -90,6 +109,10 @@ def load_data_from_file(file_path):
     return src_texts, trg_texts
 
 class ScheduledOptim:
+    """
+    动态学习率优化器 (Learning Rate Scheduler)
+    实现论文中的 Warmup 策略，提升模型收敛稳定性
+    """
     def __init__(self, optimizer, d_model, n_warmup_steps):
         self._optimizer = optimizer
         self.n_warmup_steps = n_warmup_steps
@@ -108,6 +131,8 @@ class ScheduledOptim:
         self._optimizer.zero_grad()
 
     def _get_lr(self):
+        # 论文核心公式：学习率随步数先升后降
+        # Learning rate increases linearly for warmup, then decays
         # 论文公式：d_model^-0.5 * min(step_num^-0.5, step_num * warmup_steps^-1.5)
         return (self.d_model ** -0.5) * min(
             self.n_steps ** -0.5,
