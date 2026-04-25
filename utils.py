@@ -88,3 +88,28 @@ def load_data_from_file(file_path):
                 src_texts.append(parts[0]) # 英文
                 trg_texts.append(parts[1]) # 中文
     return src_texts, trg_texts
+
+class ScheduledOptim:
+    def __init__(self, optimizer, d_model, n_warmup_steps):
+        self._optimizer = optimizer
+        self.n_warmup_steps = n_warmup_steps
+        self.d_model = d_model
+        self.n_steps = 0
+
+    def step(self):
+        "更新参数和学习率"
+        self.n_steps += 1
+        lr = self._get_lr()
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
+        self._optimizer.step()
+
+    def zero_grad(self):
+        self._optimizer.zero_grad()
+
+    def _get_lr(self):
+        # 论文公式：d_model^-0.5 * min(step_num^-0.5, step_num * warmup_steps^-1.5)
+        return (self.d_model ** -0.5) * min(
+            self.n_steps ** -0.5,
+            self.n_steps * (self.n_warmup_steps ** -1.5)
+        )
