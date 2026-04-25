@@ -125,13 +125,13 @@ class DecoderLayer(nn.Module):
         x = self.norm_1(x + self.dropout_1(attn_out))
 
         # 第二层：交叉注意力 (Q来自Decoder, K,V来自Encoder)
-        e_attn_out, _ = self.encoder_attn(x, e_outputs, e_outputs, src_mask)
+        e_attn_out, cross_attn = self.encoder_attn(x, e_outputs, e_outputs, src_mask)
         x = self.norm_2(x + self.dropout_2(e_attn_out))
 
         # 第三层：前馈网络
         ff_out = self.ff(x)
         x = self.norm_3(x + self.dropout_3(ff_out))
-        return x                   
+        return x, cross_attn                   
 
 def get_clones(module, num_layers):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(num_layers)])
@@ -149,6 +149,7 @@ class Decoder(nn.Module):
         x = self.embed(trg)
         x = self.pe(x)
 
+        last_attn = None
         for layer in self.layers:
-            x = layer(x, e_outputs, src_mask, trg_mask)
-        return self.norm(x)
+            x, last_attn = layer(x, e_outputs, src_mask, trg_mask)
+        return self.norm(x), last_attn
